@@ -1,11 +1,8 @@
-/**
- * Created by wehjin on 5/23/14.
- */
-
 var util = require('util');
 var stream = require('stream');
 var Transform = stream.Transform;
 var spawn = require('child_process').spawn;
+var concat = require('concat-stream');
 
 util.inherits(SpawnStream, Transform);
 
@@ -16,87 +13,60 @@ function SpawnStream(command, commandArguments, options) {
         return new SpawnStream(command, commandArguments, options);
 
     options = options || {};
-    this.options = options;
 
     var streamOptions = options['stream'] || {};
     Transform.call(this, streamOptions);
 
     var spawnOptions = options['spawn'] || {};
-    spawnOptions.stdio = ['pipe', 'pipe', 'ignore'];
-    this.command = command;
-    this.commandArguments = commandArguments;
-    this.spawnOptions = spawnOptions;
+    var child = spawn(command, commandArguments, spawnOptions);
+    this.child = child;
+
+    var that = this;
+
+    // When we get data on stdout, push it downstream. Pass through any error.
+    child.stdout
+        .on('data', function (data) {
+            that.push(data);
+        })
+        .on('error', this.emit.bind(this, 'error'));
+
+    // Pass through errors from stdin and the child.
+    child.stdin.on('error', this.emit.bind(this, 'error'));
+    child.on('error', this.emit.bind(this, 'error'));
+
+    child.on('exit', function(code) {
+        that._comboEnd(undefined, code);
+    })
+
+    // Collect stderr, necessary as error message
+    var write = concat(function(data) {
+        that._comboEnd(undefined, undefined, data.toString())
+    })
+    child.stderr.pipe(write);
 }
 
 SpawnStream.prototype._transform = function (chunk, encoding, callback) {
-
-    var options = this.options;
-    if (options.debug) {
-        console.error('_transform');
-    }
-
-    if (!this.child) {
-        var transform = this;
-        var child = spawn(this.command, this.commandArguments, this.spawnOptions);
-        this.child = child;
-        this.stdoutDidEnd = false;
-
-        if (options.debug) {
-            console.error('build child process');
-        }
-
-        // When we get data on stdout, push it downstream.  But if we get an end, do
-        // not push it downstream stream yet.  Mark it so that we know it occurred in
-        // _flush.  Pass through any error.
-        child.stdout
-            .on('data', function (data) {
-                if (options.debug) {
-                    console.error('received data from stdout');
-                }
-                transform.push(data);
-            })
-            .on('end', function (data) {
-                if (options.debug) {
-                    console.error('received end from stdout');
-                }
-                if (data) {
-                    transform.push(data);
-                }
-                transform.stdoutDidEnd = true;
-            })
-            .on('error', this.emit.bind(this, 'error'));
-
-        // Pass through errors from stdin and the child.
-        child.stdin.on('error', this.emit.bind(this, 'error'));
-        child.on('error', this.emit.bind(this, 'error'));
-    }
-
     // Pass data from upstream to the child.
     this.child.stdin.write(chunk, encoding);
     callback();
 };
 
 SpawnStream.prototype._flush = function (callback) {
-    var transform = this;
-
-    var debug = this.options.debug;
-    if (debug) {
-        console.error("_flush");
-    }
-
-    function onEnd() {
-        transform.child.kill();
-        delete transform.child;
-        callback();
-    }
-
-    if (!this.child) {
-        callback();
-    } else if (this.stdoutDidEnd) {
-        this.child.stdin.end();
-        onEnd();
-    } else {
-        this.child.stdin.end();
-        this.child.stdout.once('end', onEnd);
-    }
+    this.child.stdin.end();
+    this.child.stdout.once('end', this._comboEnd.bind(this, callback));
 };
+
+// Wait for _flush => stdout.end, child.exit and stderr.end
+SpawnStream.prototype._comboEnd = function(flushCallback, exitCode, stderrOutput) {
+    if(flushCallback !== undefined) { this.flushCallback = flushCallback; }
+    if(exitCode !== undefined) { this.exitCode = exitCode; }
+    if(stderrOutput !== undefined) { this.stderrOutput = stderrOutput; }
+
+    if(this.flushCallback !== undefined && this.exitCode !== undefined && this.stderrOutput !== undefined) {
+        if(this.exitCode != 0) {
+            this.flushCallback(new Error(this.stderrOutput));
+        } else {
+            this.flushCallback();
+        }
+    }
+}

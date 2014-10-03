@@ -1,24 +1,27 @@
 {
-    "name": "spawn_stream",
-    "version": "1.0.0",
-    "description": "Use a child process to transform a stream.",
-    "main": "index.js",
-    "scripts": {
-        "test": "node_modules/mocha/bin/mocha"
-    },
-    "keywords": [
-        "spawn",
-        "stream",
-        "child_process"
-    ],
-    "author": "Hendrik Klindworth",
-    "license": "MIT",
-    "devDependencies": {
-        "chai": "^1.9.1",
-        "mocha": "^1.19.0"
-    },
-    "repository": {
-        "type": "git",
-        "url": "git@github.com:hklindworth/spawn-stream.git"
-    }
+  "name": "spawn_stream",
+  "version": "1.0.0",
+  "description": "Use a child process to transform a stream.",
+  "main": "index.js",
+  "scripts": {
+    "test": "node_modules/mocha/bin/mocha"
+  },
+  "keywords": [
+    "spawn",
+    "stream",
+    "child_process"
+  ],
+  "author": "Hendrik Klindworth",
+  "license": "MIT",
+  "devDependencies": {
+    "chai": "^1.9.1",
+    "mocha": "^1.19.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:hklindworth/spawn-stream.git"
+  },
+  "dependencies": {
+    "concat-stream": "^1.4.6"
+  }
 }

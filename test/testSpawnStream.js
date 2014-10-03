@@ -10,7 +10,7 @@ describe("SpawnStream", function () {
     it("should write and emit data", function (done) {
 
         var output = "";
-        var stream = new SpawnStream('cat', null, {debug: true});
+        var stream = new SpawnStream('cat', null);
 
         /*
          fs.createReadStream('tests/testdata1.txt')
@@ -33,4 +33,27 @@ describe("SpawnStream", function () {
         stream.write('wut');
         stream.end();
     });
+
+    it("should emit an error when spawn fails", function (done) {
+
+        var output = "";
+        var stream = new SpawnStream('cat.does.not.exist');
+
+        stream.on('error', function (err) {
+            done();
+        });
+        stream.end();
+    }); 
+
+    it("should emit an error when exit code is non-zero", function (done) {
+
+        var output = "";
+        var stream = new SpawnStream('cat', ['/tmp/does.not.exist']);
+
+        stream.on('error', function (err) {
+            done();
+        });
+        stream.write('hello');
+        stream.end();
+    }); 
 });
