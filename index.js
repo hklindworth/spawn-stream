@@ -22,6 +22,8 @@ function SpawnStream(command, commandArguments, options) {
     this.child = child;
 
     var that = this;
+    this.command = command;
+    this.commandArguments = commandArguments;
 
     // When we get data on stdout, push it downstream. Pass through any error.
     child.stdout
@@ -64,7 +66,8 @@ SpawnStream.prototype._comboEnd = function(flushCallback, exitCode, stderrOutput
 
     if(this.flushCallback !== undefined && this.exitCode !== undefined && this.stderrOutput !== undefined) {
         if(this.exitCode != 0) {
-            this.flushCallback(new Error(this.stderrOutput));
+            var cmdLine = this.command + ' ' + this.commandArguments.join(' ');
+            this.flushCallback(new Error(cmdLine + "\n" + this.stderrOutput));
         } else {
             this.flushCallback();
         }
